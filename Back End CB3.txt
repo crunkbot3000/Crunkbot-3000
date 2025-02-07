@@ -1,0 +1,119 @@
+/stock-trading-app
+│── /backend
+│   │── main.py  # FastAPI backend
+│   │── ai_model.py  # AI analysis & predictions
+│   │── trading_bot.py  # Automated trading execution
+│   │── alerts.py  # Alert notifications & tracking
+│   │── database.py  # SQLite database setup
+│── /frontend
+│   │── src/
+│   │── components/
+│   │── App.js  # React frontend
+│   │── api.js  # API requests
+│── requirements.txt  # Dependencies
+│── README.md  # Documentation
+
+from fastapi import FastAPI
+from ai_model import analyze_stock, predict_future_trends
+from trading_bot import execute_trade
+from alerts import create_alert, get_alerts, delete_alert
+from database import get_tracked_stocks
+
+app = FastAPI()
+
+@app.get("/analyze/{symbol}/{risk_level}")
+async def analyze(symbol: str, risk_level: int):
+    return analyze_stock(symbol, risk_level)
+
+@app.get("/predict/{symbol}")
+async def predict(symbol: str):
+    return predict_future_trends(symbol)
+
+@app.post("/trade/{symbol}/{action}")
+async def trade(symbol: str, action: str):
+    return execute_trade(symbol, action)
+
+@app.post("/set_alert/{symbol}/{type}/{threshold}/{email}/{notification_type}")
+async def set_alert(symbol: str, type: str, threshold: float, email: str, notification_type: str):
+    return create_alert(symbol, type, threshold, email, notification_type)
+
+@app.get("/alerts")
+async def get_all_alerts():
+    return get_alerts()
+
+@app.delete("/alert/{alert_id}")
+async def remove_alert(alert_id: int):
+    return delete_alert(alert_id)
+
+@app.get("/tracked_stocks/{email}")
+async def tracked_stocks(email: str):
+    return get_tracked_stocks(email)
+
+import numpy as np
+import pandas as pd
+from stock_data import fetch_historical_data, fetch_market_data
+
+def analyze_stock(symbol, risk_level):
+    df = fetch_historical_data(symbol)
+    market_data = fetch_market_data()
+    
+    # AI-driven trend analysis (MACD, RSI, Bollinger Bands)
+    df["SMA_50"] = df["Close"].rolling(window=50).mean()
+    df["SMA_200"] = df["Close"].rolling(window=200).mean()
+    
+    if df["SMA_50"].iloc[-1] > df["SMA_200"].iloc[-1]:
+        return {"symbol": symbol, "signal": "BUY", "reason": "Uptrend detected"}
+    else:
+        return {"symbol": symbol, "signal": "SELL", "reason": "Downtrend detected"}
+
+def predict_future_trends(symbol):
+    df = fetch_historical_data(symbol)
+    df["Returns"] = df["Close"].pct_change()
+    
+    future_prices = []
+    for i in range(12):
+        future_prices.append(df["Close"].iloc[-1] * (1 + np.random.normal(0, 0.02)))
+    
+    return {"symbol": symbol, "predictions": future_prices}
+
+import requests
+
+BROKER_API = "https://broker-api.com/trade"
+
+def execute_trade(symbol, action):
+    trade_data = {"symbol": symbol, "action": action, "amount": 10}  
+    response = requests.post(BROKER_API, json=trade_data)
+    
+    if response.status_code == 200:
+        return {"message": f"{action} order placed for {symbol}"}
+    else:
+        return {"error": "Failed to execute trade"}
+
+import smtplib
+
+alerts_db = []
+
+def create_alert(symbol, type, threshold, email, notification_type):
+    alert = {"symbol": symbol, "type": type, "threshold": threshold, "email": email, "notification_type": notification_type}
+    alerts_db.append(alert)
+    
+    if notification_type == "email":
+        send_email_alert(email, f"Stock Alert: {symbol} {type} at {threshold}")
+    
+    return {"message": f"Alert set for {symbol}"}
+
+def get_alerts():
+    return alerts_db
+
+def delete_alert(alert_id):
+    global alerts_db
+    alerts_db = [a for a in alerts_db if a["id"] != alert_id]
+    return {"message": "Alert deleted"}
+
+def send_email_alert(to_email, message):
+    server = smtplib.SMTP("smtp.example.com", 587)
+    server.starttls()
+    server.login("your-email@example.com", "password")
+    server.sendmail("your-email@example.com", to_email, message)
+    server.quit()
+
