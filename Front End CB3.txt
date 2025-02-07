@@ -1,0 +1,49 @@
+import React, { useState, useEffect } from "react";
+import axios from "axios";
+
+function App() {
+    const [symbol, setSymbol] = useState("");
+    const [riskLevel, setRiskLevel] = useState(5);
+    const [alerts, setAlerts] = useState([]);
+
+    useEffect(() => {
+        fetchAlerts();
+    }, []);
+
+    const analyzeStock = async () => {
+        const response = await axios.get(`http://localhost:8000/analyze/${symbol}/${riskLevel}`);
+        alert(`AI Signal: ${response.data.signal} (${response.data.reason})`);
+    };
+
+    const setAlert = async (type, threshold) => {
+        await axios.post(`http://localhost:8000/set_alert/${symbol}/${type}/${threshold}/test@example.com/email`);
+        fetchAlerts();
+    };
+
+    const fetchAlerts = async () => {
+        const response = await axios.get("http://localhost:8000/alerts");
+        setAlerts(response.data);
+    };
+
+    return (
+        <div>
+            <h1>AI-Powered Stock Trading</h1>
+            <input type="text" placeholder="Stock Symbol" value={symbol} onChange={(e) => setSymbol(e.target.value.toUpperCase())} />
+            <button onClick={analyzeStock}>Analyze</button>
+
+            <h2>Alerts</h2>
+            <ul>
+                {alerts.map((alert, index) => (
+                    <li key={index}>{alert.symbol} - {alert.type} at {alert.threshold}</li>
+                ))}
+            </ul>
+
+            <h3>Set Alert</h3>
+            <button onClick={() => setAlert("BUY", 100)}>Buy at $100</button>
+            <button onClick={() => setAlert("SELL", 120)}>Sell at $120</button>
+        </div>
+    );
+}
+
+export default App;
+
